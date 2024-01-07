@@ -10,10 +10,8 @@ import (
 
 // Response represents the Server List Ping (SLP) response.
 type Response struct {
-	// Documentation links for reference:
+	// Documentation link:
 	// https://wiki.vg/Server_List_Ping
-	// https://wiki.vg/Minecraft_Forge_Handshake#Changes_to_Server_List_Ping
-
 	Version            Version     `json:"version"`
 	Players            Players     `json:"players"`
 	Favicon            string      `json:"favicon,omitempty"`
@@ -22,8 +20,9 @@ type Response struct {
 	PreviewsChat       bool        `json:"previewsChat,omitempty"`
 
 	// Forge related data
-	ForgeModInfo *LegacyForgeModInfo `json:"modinfo,omitempty"`
-	ForgeData    *ForgeData          `json:"forgeData,omitempty"`
+	// https://wiki.vg/Minecraft_Forge_Handshake#Changes_to_Server_List_Ping
+	ForgeModInfo *LegacyForgeModInfo `json:"modinfo,omitempty"`   // Minecraft Forge 1.7 - 1.12
+	ForgeData    *ForgeData          `json:"forgeData,omitempty"` // Minecraft Forge 1.13 - Current
 
 	// Latency measured by the client
 	Latency int `json:"latency,omitempty"`
@@ -45,7 +44,7 @@ type Players struct {
 // Player represents an individual player's information in the SLP response.
 type Player struct {
 	Name string `json:"name"`
-	Id   string `json:"id"`
+	ID   string `json:"id"`
 }
 
 // ForgeData represents Forge mod data in the SLP response.
@@ -121,25 +120,25 @@ func (d *Description) MarshalJSON() ([]byte, error) {
 
 // ChatComponent represents a Minecraft chat type used in the SLP response description.
 type ChatComponent struct {
-	Text          string          `json:"text"`
-	Bold          bool            `json:"bold,omitempty"`
-	Italic        bool            `json:"italic,omitempty"`
-	Underlined    bool            `json:"underlined,omitempty"`
-	Strikethrough bool            `json:"strikethrough,omitempty"`
-	Obfuscated    bool            `json:"obfuscated,omitempty"`
-	Font          string          `json:"font,omitempty"`
-	Color         string          `json:"color,omitempty"`
-	Insertion     string          `json:"insertion,omitempty"`
-	ClickEvent    *ClickEvent     `json:"clickEvent,omitempty"`
-	HoverEvent    *HoverEvent     `json:"hoverEvent,omitempty"`
-	Extra         []ChatComponent `json:"extra,omitempty"`
+	Text          string        `json:"text"`
+	Bold          bool          `json:"bold,omitempty"`
+	Italic        bool          `json:"italic,omitempty"`
+	Underlined    bool          `json:"underlined,omitempty"`
+	Strikethrough bool          `json:"strikethrough,omitempty"`
+	Obfuscated    bool          `json:"obfuscated,omitempty"`
+	Font          string        `json:"font,omitempty"`
+	Color         string        `json:"color,omitempty"`
+	Insertion     string        `json:"insertion,omitempty"`
+	ClickEvent    *ClickEvent   `json:"clickEvent,omitempty"`
+	HoverEvent    *HoverEvent   `json:"hoverEvent,omitempty"`
+	Extra         []Description `json:"extra,omitempty"`
 }
 
 // String converts the ChatComponent into a string.
 func (c *ChatComponent) String() string {
 	text := c.Text
 	for _, extra := range c.Extra {
-		text += extra.Text
+		text += extra.String()
 	}
 
 	return text
@@ -160,7 +159,6 @@ type HoverEvent struct {
 // NewResponse parses a raw SLP response string into a Response struct.
 func NewResponse[T []byte | string](rawRes T) (*Response, error) {
 	res := new(Response)
-
 	if err := json.Unmarshal([]byte(rawRes), &res); err != nil {
 		return nil, err
 	}
@@ -185,7 +183,6 @@ func (r *Response) Icon() ([]byte, error) {
 	}
 
 	base64Icon := strings.TrimPrefix(r.Favicon, "data:image/png;base64,")
-
 	iconBytes, err := base64.StdEncoding.DecodeString(base64Icon)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert base64 image to bytes: %w", err)

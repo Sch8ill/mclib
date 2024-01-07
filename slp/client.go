@@ -105,7 +105,7 @@ func (c *Client) Status() (*Response, error) {
 
 	rawRes, err := c.recvResponse()
 	if err != nil {
-		return nil, fmt.Errorf("failed to receive status reponse: %w", err)
+		return nil, fmt.Errorf("failed to receive status response: %w", err)
 	}
 
 	res, err := NewResponse(rawRes)
