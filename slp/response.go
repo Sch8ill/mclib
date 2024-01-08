@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+const MaxUUIDLen int = 32
 
 // Response represents the Server List Ping (SLP) response.
 type Response struct {
@@ -45,6 +48,27 @@ type Players struct {
 type Player struct {
 	Name string `json:"name"`
 	ID   string `json:"id"`
+}
+
+// UnmarshalJSON unmarshalls a player into a Player.
+// It ensures that the player is parsed successfully, even if the ID is not a string.
+// Not all Minecraft servers respond with correct player IDs.
+// For example 2b2t.org: {"name":"§6In-game: 326","id":[0,1,0,1]}
+func (p *Player) UnmarshalJSON(b []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(raw["name"], &p.Name); err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(raw["id"], &p.ID); err != nil {
+		p.ID = formatUUID(string(raw["id"]))
+	}
+
+	return nil
 }
 
 // ForgeData represents Forge mod data in the SLP response.
@@ -189,4 +213,21 @@ func (r *Response) Icon() ([]byte, error) {
 	}
 
 	return iconBytes, nil
+}
+
+// formatMinecraftUUID formats the given string as a Minecraft UUID.
+func formatUUID(input string) string {
+	// Remove non-hex characters
+	re := regexp.MustCompile("[^a-fA-F0-9]")
+	cleaned := re.ReplaceAllString(input, "")
+
+	if len(cleaned) > 32 {
+		cleaned = cleaned[:32]
+	}
+
+	for len(cleaned) < 32 {
+		cleaned = cleaned + "0"
+	}
+
+	return cleaned[:8] + "-" + cleaned[8:12] + "-" + cleaned[12:16] + "-" + cleaned[16:20] + "-" + cleaned[20:]
 }
