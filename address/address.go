@@ -60,7 +60,7 @@ func (a *Address) ResolveSRV() error {
 	if len(records) > 0 {
 		srvRecord := records[0]
 		a.SRVPort = srvRecord.Port
-		a.SRVHost = srvRecord.Target
+		a.SRVHost, _ = strings.CutSuffix(srvRecord.Target, ".")
 		a.SRV = true
 	}
 
