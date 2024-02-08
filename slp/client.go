@@ -197,7 +197,7 @@ func (c *Client) recvResponse() (string, error) {
 	//
 	// https://wiki.vg/Server_List_Ping#Status_Response
 
-	res, err := packet.NewInboundPacket(c.conn)
+	res, err := packet.NewInboundPacket(c.conn, c.timeout)
 	if err != nil {
 		return "", fmt.Errorf("failed to read status response: %w", err)
 	}
@@ -250,7 +250,7 @@ func (c *Client) recvPong() (int64, error) {
 	//
 	// https://wiki.vg/Server_List_Ping#Pong_Response
 
-	pong, err := packet.NewInboundPacket(c.conn)
+	pong, err := packet.NewInboundPacket(c.conn, c.timeout)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pong: %w", err)
 	}
@@ -280,6 +280,7 @@ func (c *Client) connectAndHandshake() error {
 			return err
 		}
 	}
+
 	return nil
 }
 

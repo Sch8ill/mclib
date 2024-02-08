@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 )
 
 // InboundPacket represents a packet received from a connection.
@@ -18,7 +19,11 @@ type InboundPacket struct {
 }
 
 // NewInboundPacket creates a new InboundPacket from a network connection.
-func NewInboundPacket(conn net.Conn) (*InboundPacket, error) {
+func NewInboundPacket(conn net.Conn, timeout time.Duration) (*InboundPacket, error) {
+	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, fmt.Errorf("failed to set read deadline: %w", err)
+	}
+
 	p := &InboundPacket{}
 	connReader := bufio.NewReader(conn)
 
@@ -46,6 +51,11 @@ func NewInboundPacket(conn net.Conn) (*InboundPacket, error) {
 	p.id = int32(packetID)
 
 	return p, nil
+}
+
+// ID returns the id of the packet.
+func (p *InboundPacket) ID() int32 {
+	return p.id
 }
 
 // ReadInt reads a 32-bit integer from the packet.
@@ -157,13 +167,12 @@ func (p *InboundPacket) ReadBytes(length int) ([]byte, error) {
 	return b, nil
 }
 
-// ID returns the id of the packet.
-func (p *InboundPacket) ID() int32 {
-	return p.id
-}
-
 // readBytes reads a specified number of bytes from a buffered reader.
 func readBytes(reader *bufio.Reader, length int) ([]byte, error) {
+	if length < 0 {
+		return nil, fmt.Errorf("read length cannot be negative: %d", length)
+	}
+
 	data := make([]byte, length)
 	var received int
 	for received < length {
