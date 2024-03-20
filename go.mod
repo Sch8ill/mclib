@@ -1,3 +1,3 @@
 module github.com/sch8ill/mclib
 
-go 1.20
+go 1.22
