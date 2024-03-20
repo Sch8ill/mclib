@@ -221,11 +221,11 @@ func formatUUID(input string) string {
 	re := regexp.MustCompile("[^a-fA-F0-9]")
 	cleaned := re.ReplaceAllString(input, "")
 
-	if len(cleaned) > 32 {
-		cleaned = cleaned[:32]
+	if len(cleaned) > MaxUUIDLen {
+		cleaned = cleaned[:MaxUUIDLen]
 	}
 
-	for len(cleaned) < 32 {
+	for len(cleaned) < MaxUUIDLen {
 		cleaned = cleaned + "0"
 	}
 

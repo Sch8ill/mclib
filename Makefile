@@ -1,5 +1,5 @@
 bin_name=mcli
-target=cmd/cli/main.go
+target=cmd/main.go
 
 all: build
 
