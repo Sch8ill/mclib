@@ -7,8 +7,12 @@
 
 ---
 
-The `mclib` package provides utilities for interacting with Minecraft servers using the Server List Ping (SLP) protocol.
+The `mclib` package provides utilities for interacting with Minecraft servers using
+the [Minecraft protocol](https://wiki.vg/Protocol).
 It includes functionality to query Minecraft servers for status and latency information.
+`mclib` is also capable of determining the software a server is running on by using fingerprinting techniques.
+
+---
 
 ## Installation
 
@@ -20,56 +24,69 @@ go get github.com/sch8ill/mclib
 
 ## Usage
 
-### MCServer
-
-`MCServer` represents a Minecraft server with its address and client. It provides methods to retrieve server status and
-perform a status ping.
-
-#### Creating an MCServer Instance
+### StatusPing
 
 ```go
 package main
 
 import (
-	"github.com/sch8ill/mclib/server"
+	"fmt"
+
+	"github.com/sch8ill/mclib"
 )
 
 func main() {
-	srv, err := server.New("example.com:25565")
-	if err != nil {
-		// handle error
-	}
+	client, _ := mclib.NewClient("2b2t.org")
+	res, _ := client.StatusPing()
+
+	fmt.Printf("version: %s\n", res.Version.Name)
+	fmt.Printf("protocol: %d\n", res.Version.Protocol)
+	fmt.Printf("online players: %d\n", res.Players.Online)
+	fmt.Printf("max players: %d\n", res.Players.Max)
+	fmt.Printf("sample players: %+q\n", res.Players.Sample)
+	fmt.Printf("description: %s\n", res.Description.String())
+	fmt.Printf("latency: %dms\n", res.Latency)
 }
 ```
 
-#### StatusPing
+#### output
+
+```text
+version: Velocity 1.7.2-1.20.4
+protocol: 47
+online players: 571
+max players: 1
+sample players: [{"Fit" "fdee323e-7f0c-4c15-8d1c-0f277442342a"}]
+description: 2B Updated to 1.19! 2T
+latency: 8ms
+```
+
+### Fingerprint
 
 ```go
-res, err := srv.StatusPing()
-if err != nil {
-// handle error
-}
+package main
 
-fmt.Printf("version: %s\n", res.Version.Name)
-fmt.Printf("protocol: %d\n", res.Version.Protocol)
-fmt.Printf("online players: %d\n", res.Players.Online)
-fmt.Printf("max players: %d\n", res.Players.Max)
-fmt.Printf("sample players: %+q\n", res.Players.Sample)
-fmt.Printf("description: %s\n", res.Description.String())
-fmt.Printf("latency: %dms\n", res.Latency)
-// ... 
+import (
+	"fmt"
+
+	"github.com/sch8ill/mclib/fingerprint"
+)
+
+func main() {
+	software, _ := fingerprint.Fingerprint("localhost")
+	fmt.Printf("software fingerprint: %s\n", software)
+}
 ```
 
-#### Ping
+#### output
 
-```go
-latency, err := srv.ping()
-if err != nil {
-// handle error
-}
-
-fmt.Printf("latency: %dms\n", latency)
+```text
+software fingerprint: craftbukkit
 ```
+
+Further documentation can be found on [pkg.go.dev](https://pkg.go.dev/github.com/sch8ill/mclib).
+
+---
 
 ### Cli
 
@@ -79,13 +96,11 @@ requires:
 
 ```
 make
-go >= 1.20
+go >= 1.22
 ```
 
-build:
-
 ```bash
-make build && mv build/mcli mcli
+make build
 ```
 
 #### Usage
@@ -95,6 +110,10 @@ make build && mv build/mcli mcli
 ```
   -addr string
         the server address (default "localhost")
+  -fingerprint
+        whether a software fingerprint should be performed on the server (default true)
+  -protocol int
+        the protocol version number the client should use (default 760)
   -srv
         whether a srv lookup should be made (default true)
   -timeout duration
@@ -106,6 +125,8 @@ For example:
 ```bash
 mcli --addr hypixel.net --timeout 10s
 ```
+
+---
 
 ## License
 
