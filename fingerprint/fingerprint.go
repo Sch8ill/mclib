@@ -164,7 +164,8 @@ func (m *DisconnectMsg) Fingerprint() (string, error) {
 		m.With[0],
 		"Internal Exception: io.netty.handler.codec.DecoderException: java.io.IOException: Packet ")
 
-	re := regexp.MustCompile(" was larger than I expected, found \\d+ bytes extra whilst reading packet \\d+$")
+	re := regexp.MustCompile(
+		" was larger than I expected, found (?:\\d+|serverbound/minecraft:hello) bytes extra whilst reading packet (?:\\d+|serverbound/minecraft:hello)$")
 	msg = re.ReplaceAllString(msg, "")
 
 	if msg == "login/0 (PacketLoginInStart)" {
@@ -176,8 +177,8 @@ func (m *DisconnectMsg) Fingerprint() (string, error) {
 		return Forge, nil
 	}
 
-	// vanilla e.g.: login/0 (afu)
-	vanillaRe := regexp.MustCompile("^login/0 \\(.{2,3}?\\)$")
+	// vanilla e.g.: login/0 (afu) or login/serverbound/minecraft:hello (aio)
+	vanillaRe := regexp.MustCompile("^login/(serverbound/minecraft:hello|0) \\(.{2,3}?\\)$")
 	if vanillaRe.MatchString(msg) {
 		return Vanilla, nil
 	}
@@ -192,7 +193,11 @@ func (m *DisconnectMsg) Fingerprint() (string, error) {
 }
 
 func (m *DisconnectMsg) VersionMismatch() (bool, string) {
-	if m.Translate == "multiplayer.disconnect.incompatible" {
+	switch m.Translate {
+	case "multiplayer.disconnect.incompatible":
+		fallthrough
+
+	case "multiplayer.disconnect.outdated_client":
 		if len(m.With) < 1 {
 			return true, ""
 		}
