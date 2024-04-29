@@ -111,6 +111,10 @@ func (c *Client) StatusPing() (*slp.Response, error) {
 	}
 	res.Latency = latency
 
+	if err := c.Close(); err != nil {
+		return nil, err
+	}
+
 	return res, nil
 }
 
@@ -160,8 +164,10 @@ func (c *Client) Ping() (int, error) {
 		return latency, fmt.Errorf("server responded with wrong pong id")
 	}
 
-	// the server closes the connection after the pong packet
-	c.state = Idle
+	if err := c.Close(); err != nil {
+		return 0, err
+	}
+
 	return latency, nil
 }
 
@@ -186,7 +192,26 @@ func (c *Client) LoginError() (string, int32, error) {
 		return "", 0, err
 	}
 
+	if err := c.Close(); err != nil {
+		return "", 0, err
+	}
+
 	return reason, res.ID(), nil
+}
+
+// Close safely closes the TCP connection to the Minecraft server.
+func (c *Client) Close() error {
+	if c.conn == nil {
+		return nil
+	}
+
+	if err := c.conn.Close(); err != nil {
+		return fmt.Errorf("failed to close connection: %w", err)
+	}
+
+	c.conn = nil
+	c.state = Idle
+	return nil
 }
 
 // sendHandshake sends a handshake packet to the Minecraft server during the connection setup.
@@ -212,7 +237,6 @@ func (c *Client) sendHandshake(state int32) error {
 	}
 
 	c.state = HandshakeComplete
-
 	return nil
 }
 
