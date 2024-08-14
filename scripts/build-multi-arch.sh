@@ -18,7 +18,7 @@ for platform in "${!platforms[@]}"; do
         output_name+='.exe'
     fi
 
-    if env GOOS="${platforms[$platform]%%/*}" GOARCH="${platforms[$platform]##*/}" go build -o "$output_name" "$target"; then
+    if env GOOS="${platforms[$platform]%%/*}" GOARCH="${platforms[$platform]##*/}" go build -ldflags="-s" -trimpath -o "$output_name" "$target"; then
         echo "Built $output_name"
     else
         echo "Error building $output_name"
