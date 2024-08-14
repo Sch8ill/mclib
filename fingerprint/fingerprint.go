@@ -17,6 +17,7 @@ import (
 const (
 	Vanilla     string = "vanilla"
 	CraftBukkit        = "craftbukkit"
+	Paper              = "paper"
 	Fabric             = "fabric"
 	Forge              = "forge"
 	Velocity           = "velocity"
@@ -47,6 +48,9 @@ func Fingerprint(addr string, opts ...mclib.ClientOption) (string, error) {
 func FingerprintWithProtocol(addr string, protocol int, opts ...mclib.ClientOption) (string, error) {
 	opts = append(opts, mclib.WithProtocolVersion(int32(protocol)))
 	client, err := mclib.NewClient(addr, opts...)
+	if err != nil {
+		return Unknown, fmt.Errorf("client creation failed: %w", err)
+	}
 
 	res, id, err := client.LoginError()
 	if errors.Is(err, io.EOF) {
@@ -56,9 +60,30 @@ func FingerprintWithProtocol(addr string, protocol int, opts ...mclib.ClientOpti
 		return Unknown, err
 	}
 
-	switch id {
-	case packet.LoginDisconnectID:
+	if id != packet.LoginDisconnectID {
+		return determineServerState(id)
+	}
 
+	// response is not json
+	if !strings.HasPrefix(res, "{") {
+		return parseErrorResponse(res)
+	}
+
+	msg, err := NewDisconnectMsg(res)
+	if err != nil {
+		return Unknown, err
+	}
+
+	mismatch, version := msg.VersionMismatch()
+	if mismatch {
+		return Unknown, fmt.Errorf("version mismatch: %s", version)
+	}
+
+	return msg.Fingerprint()
+}
+
+func determineServerState(id int32) (string, error) {
+	switch id {
 	case packet.LoginEncryptionID:
 		return Encryption, nil
 
@@ -70,12 +95,12 @@ func FingerprintWithProtocol(addr string, protocol int, opts ...mclib.ClientOpti
 
 	case packet.LoginPluginID:
 		return Plugin, nil
-
-	default:
-		return Unknown, fmt.Errorf("unfamilliar packet id: %d", id)
-
 	}
 
+	return Unknown, fmt.Errorf("unfamiliar packet id: %d", id)
+}
+
+func parseErrorResponse(res string) (string, error) {
 	if res == "" {
 		return Empty, nil
 	}
@@ -98,17 +123,7 @@ func FingerprintWithProtocol(addr string, protocol int, opts ...mclib.ClientOpti
 		return Forge, nil
 	}
 
-	msg, err := NewDisconnectMsg(res)
-	if err != nil {
-		return "", err
-	}
-
-	mismatch, version := msg.VersionMismatch()
-	if mismatch {
-		return Unknown, fmt.Errorf("version mismatch: %s", version)
-	}
-
-	return msg.Fingerprint()
+	return Unknown, nil
 }
 
 type DisconnectMsg struct {
@@ -164,28 +179,28 @@ func (m *DisconnectMsg) Fingerprint() (string, error) {
 		m.With[0],
 		"Internal Exception: io.netty.handler.codec.DecoderException: java.io.IOException: Packet ")
 
-	re := regexp.MustCompile(
-		" was larger than I expected, found (?:\\d+|serverbound/minecraft:hello) bytes extra whilst reading packet (?:\\d+|serverbound/minecraft:hello)$")
-	msg = re.ReplaceAllString(msg, "")
+	msg = regexp.MustCompile(
+		" was larger than I expected, found (?:\\d+|(?:login/)?serverbound/minecraft:hello)"+
+			" bytes extra whilst reading packet (?:\\d+|serverbound/minecraft:hello)$").ReplaceAllString(msg, "")
 
-	if msg == "login/0 (PacketLoginInStart)" {
+	msg = regexp.MustCompile("^(login|\\d+)/(serverbound/minecraft:hello|\\d+) ").ReplaceAllString(msg, "")
+
+	if msg == "(PacketLoginInStart)" {
 		return CraftBukkit, nil
 	}
 
-	// forge without any mods
-	if msg == "login/0 (ServerboundHelloPacket)" {
-		return Forge, nil
+	// paper or forge without mods
+	if msg == "(ServerboundHelloPacket)" {
+		return Paper, nil
 	}
 
 	// vanilla e.g.: login/0 (afu) or login/serverbound/minecraft:hello (aio)
-	vanillaRe := regexp.MustCompile("^login/(serverbound/minecraft:hello|0) \\(.{2,3}?\\)$")
-	if vanillaRe.MatchString(msg) {
+	if regexp.MustCompile("^\\(.{2,3}?\\)$").MatchString(msg) {
 		return Vanilla, nil
 	}
 
 	// fabric e.g.: 2/0 (class_2915)
-	fabricRe := regexp.MustCompile("^\\d+/\\d+ \\(class_\\d*\\)$")
-	if fabricRe.MatchString(msg) {
+	if regexp.MustCompile("^\\(class_\\d*\\)$").MatchString(msg) {
 		return Fabric, nil
 	}
 
