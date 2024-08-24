@@ -2,6 +2,7 @@
 package address
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -24,6 +25,10 @@ type Address struct {
 // which can include the host and port separated by a colon (e.g., "example.com:25565").
 // If no port is specified, it uses the default Minecraft port.
 func New(addr string) (*Address, error) {
+	if addr == "" {
+		return nil, errors.New("address is empty")
+	}
+
 	if !strings.Contains(addr, ":") {
 		return &Address{
 			host: addr,
@@ -36,7 +41,7 @@ func New(addr string) (*Address, error) {
 		return nil, fmt.Errorf("invalid address: %s", addr)
 	}
 
-	port, err := strconv.Atoi(splitAddr[1])
+	port, err := strconv.ParseUint(splitAddr[1], 10, 16)
 	if err != nil {
 		return nil, fmt.Errorf("invalid port: %s", splitAddr[1])
 	}
