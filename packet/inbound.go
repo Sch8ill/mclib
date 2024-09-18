@@ -73,7 +73,7 @@ func (p *InboundPacket) ReadInt() (int32, error) {
 
 // ReadShort reads a 16-bit integer from the packet.
 func (p *InboundPacket) ReadShort() (int16, error) {
-	buf := make([]byte, 8)
+	buf := make([]byte, 2)
 
 	_, err := io.ReadFull(p.reader, buf)
 	if err != nil {
