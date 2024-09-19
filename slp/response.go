@@ -138,7 +138,7 @@ func (d *Description) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON marshals a Description by returning a marshalled ChatComponent.
-func (d *Description) MarshalJSON() ([]byte, error) {
+func (d Description) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.Description)
 }
 
