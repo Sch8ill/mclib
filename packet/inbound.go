@@ -14,7 +14,6 @@ import (
 // InboundPacket represents a packet received from a connection.
 type InboundPacket struct {
 	id     int32
-	body   []byte
 	reader *bufio.Reader
 }
 
@@ -25,9 +24,8 @@ func NewInboundPacket(conn net.Conn, timeout time.Duration) (*InboundPacket, err
 	}
 
 	p := &InboundPacket{}
-	connReader := bufio.NewReader(conn)
 
-	uLength, err := binary.ReadUvarint(connReader)
+	uLength, err := readVarInt(conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read packet length: %w", err)
 	}
@@ -37,14 +35,14 @@ func NewInboundPacket(conn net.Conn, timeout time.Duration) (*InboundPacket, err
 		return nil, fmt.Errorf("received packet is too long: %d", length)
 	}
 
-	p.body, err = readBytes(connReader, length)
+	body := make([]byte, length)
+	_, err = io.ReadFull(conn, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to receive packet body: %w", err)
 	}
+	p.reader = bufio.NewReader(bytes.NewReader(body))
 
-	p.reader = bufio.NewReader(bytes.NewReader(p.body))
-
-	packetID, err := binary.ReadUvarint(p.reader)
+	packetID, err := p.ReadVarInt()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read packet id: %w", err)
 	}
@@ -185,4 +183,32 @@ func readBytes(reader *bufio.Reader, length int) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+// readVarInt reads a varint from a reader.
+func readVarInt(conn io.Reader) (int32, error) {
+	var num int32
+	var shift uint
+	buf := make([]byte, 1)
+
+	for {
+		_, err := conn.Read(buf)
+		if err != nil {
+			return 0, fmt.Errorf("failed to read varint: %w", err)
+		}
+
+		byteValue := buf[0]
+		num |= int32(byteValue&0x7F) << shift
+
+		if (byteValue & 0x80) == 0 {
+			break
+		}
+
+		shift += 7
+		if shift >= 32 {
+			return 0, fmt.Errorf("varint is too long")
+		}
+	}
+
+	return num, nil
 }
