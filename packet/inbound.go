@@ -15,6 +15,7 @@ import (
 type InboundPacket struct {
 	id     int32
 	reader *bufio.Reader
+	size   int
 }
 
 // NewInboundPacket creates a new InboundPacket from a network connection.
@@ -25,11 +26,12 @@ func NewInboundPacket(conn net.Conn, timeout time.Duration) (*InboundPacket, err
 
 	p := &InboundPacket{}
 
-	uLength, err := readVarInt(conn)
+	uLength, lengthSize, err := readVarInt(conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read packet length: %w", err)
 	}
 	length := int(uLength)
+	p.size = lengthSize + length
 
 	if length > MaxPacketLength {
 		return nil, fmt.Errorf("received packet is too long: %d", length)
@@ -165,6 +167,11 @@ func (p *InboundPacket) ReadBytes(length int) ([]byte, error) {
 	return b, nil
 }
 
+// Size returns the size of the packet in bytes.
+func (p *InboundPacket) Size() int {
+	return p.size
+}
+
 // readBytes reads a specified number of bytes from a buffered reader.
 func readBytes(reader *bufio.Reader, length int) ([]byte, error) {
 	if length < 0 {
@@ -186,16 +193,18 @@ func readBytes(reader *bufio.Reader, length int) ([]byte, error) {
 }
 
 // readVarInt reads a varint from a reader.
-func readVarInt(conn io.Reader) (int32, error) {
+func readVarInt(conn io.Reader) (int32, int, error) {
 	var num int32
 	var shift uint
+	var size int
 	buf := make([]byte, 1)
 
 	for {
 		_, err := conn.Read(buf)
 		if err != nil {
-			return 0, fmt.Errorf("failed to read varint: %w", err)
+			return 0, 0, fmt.Errorf("failed to read varint: %w", err)
 		}
+		size++
 
 		byteValue := buf[0]
 		num |= int32(byteValue&0x7F) << shift
@@ -206,9 +215,9 @@ func readVarInt(conn io.Reader) (int32, error) {
 
 		shift += 7
 		if shift >= 32 {
-			return 0, fmt.Errorf("varint is too long")
+			return 0, 0, fmt.Errorf("varint is too long")
 		}
 	}
 
-	return num, nil
+	return num, size, nil
 }

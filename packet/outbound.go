@@ -89,6 +89,11 @@ func (p *OutboundPacket) WriteBytes(b []byte) {
 	p.body = append(p.body, b...)
 }
 
+// Size returns the size of the packet in bytes.
+func (p *OutboundPacket) Size() int {
+	return len(encodeVarInt(p.id)) + len(encodeVarInt(int32(len(p.body)))) + len(p.body)
+}
+
 // Write sends the packet over the given network connection.
 func (p *OutboundPacket) Write(conn net.Conn) error {
 	payload := append(encodeVarInt(p.id), p.body...)
