@@ -94,21 +94,28 @@ func (p *OutboundPacket) Size() int {
 	return len(encodeVarInt(p.id)) + len(encodeVarInt(int32(len(p.body)))) + len(p.body)
 }
 
-// Write sends the packet over the given network connection.
-func (p *OutboundPacket) Write(conn net.Conn) error {
-	payload := append(encodeVarInt(p.id), p.body...)
-	length := len(payload)
+// Build serializes the packet with ID and length.
+func (p *OutboundPacket) Build() ([]byte, error) {
+	packet := append(encodeVarInt(p.id), p.body...)
+	length := len(packet)
 
 	if length > MaxPacketLength {
-		return fmt.Errorf("packet exceeds max packet length of %d by %d bytes", MaxPacketLength, length-MaxPacketLength)
+		return nil, fmt.Errorf("packet exceeds max packet length of %d by %d bytes", MaxPacketLength, length-MaxPacketLength)
+	}
+	packet = append(encodeVarInt(int32(length)), packet...)
+
+	return packet, nil
+}
+
+// Write sends the packet over the given network connection.
+func (p *OutboundPacket) Write(conn net.Conn) error {
+	packet, err := p.Build()
+	if err != nil {
+		return err
 	}
 
-	if _, err := conn.Write(encodeVarInt(int32(length))); err != nil {
-		return fmt.Errorf("failed to write packet length: %w", err)
-	}
-
-	if _, err := conn.Write(payload); err != nil {
-		return fmt.Errorf("failed to write packet payload: %w", err)
+	if _, err := conn.Write(packet); err != nil {
+		return fmt.Errorf("failed to write packet: %w", err)
 	}
 
 	return nil
