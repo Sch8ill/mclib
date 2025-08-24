@@ -19,9 +19,12 @@ type InboundPacket struct {
 }
 
 // NewInboundPacket creates a new InboundPacket from a network connection.
-func NewInboundPacket(conn net.Conn, timeout time.Duration) (*InboundPacket, error) {
-	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
-		return nil, fmt.Errorf("failed to set read deadline: %w", err)
+func NewInboundPacket(conn io.Reader, timeout time.Duration) (*InboundPacket, error) {
+	switch conn := conn.(type) {
+	case net.Conn:
+		if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+			return nil, fmt.Errorf("failed to set read deadline: %w", err)
+		}
 	}
 
 	p := &InboundPacket{}
